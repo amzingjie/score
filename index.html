@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>文字 → 五线谱</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/abcjs@6/dist/abcjs-audio.css">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px; background: #f6f7f9; color: #222;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  textarea {
+    width: 100%; height: 150px; padding: 12px; font-size: 15px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    border: 1px solid #ccd; border-radius: 10px; resize: vertical;
+    background: #fff; line-height: 1.5;
+  }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  button {
+    flex: 1 1 auto; min-width: 110px; padding: 12px 14px; font-size: 15px;
+    border: none; border-radius: 10px; background: #3b6ef6; color: #fff;
+    font-weight: 600; cursor: pointer;
+  }
+  button:active { transform: scale(.97); }
+  button.ghost { background: #fff; color: #3b6ef6; border: 1px solid #bcd; }
+  #paper {
+    background: #fff; border-radius: 10px; padding: 12px;
+    overflow-x: auto; box-shadow: 0 1px 6px rgba(0,0,0,.06);
+  }
+  #audio { margin-bottom: 12px; }
+  .tip { font-size: 12px; color: #667; margin-top: 10px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<h1>文字 → 五线谱</h1>
+
+<div id="audio"></div>
+
+<textarea id="abc">X:1
+T:小星星
+M:4/4
+L:1/4
+K:C
+C C G G | A A G2 | F F E E | D D C2 |</textarea>
+
+<div class="btns">
+  <button id="btnRender">生成五线谱</button>
+  <button id="btnPlay" class="ghost">播放</button>
+  <button id="btnPng" class="ghost">导出 PNG</button>
+  <button id="btnSvg" class="ghost">导出 SVG</button>
+</div>
+
+<div id="paper">点「生成五线谱」试试</div>
+
+<p class="tip">
+  把 AI 生成的 <b>ABC 记谱</b> 贴进上面即可。<br>
+  提示：让 AI「用 ABC 记谱法输出」，格式如 <code>X:1 → T:曲名 → M:4/4 → L:1/4 → K:C → 音符</code>。
+</p>
+
+<script src="https://cdn.jsdelivr.net/npm/abcjs@6/dist/abcjs-basic-min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let visualObj = null;
+let synthControl = null;
+
+function render() {
+  const abc = $("abc").value.trim();
+  if (!abc) return;
+  $("paper").innerHTML = "";
+  try {
+    const tunes = ABCJS.renderAbc("paper", abc, {
+      responsive: "resize",
+      add_classes: true,
+      staffwidth: Math.min(window.innerWidth - 70, 900)
+    });
+    visualObj = tunes && tunes[0];
+  } catch (e) {
+    $("paper").textContent = "解析出错：" + e.message;
+    visualObj = null;
+  }
+}
+
+async function play() {
+  if (!visualObj) render();
+  if (!visualObj) return alert("先贴一段 ABC 文字");
+  if (!ABCJS.synth.supportsAudio()) return alert("当前浏览器不支持音频播放");
+  if (!synthControl) {
+    synthControl = new ABCJS.synth.SynthController();
+    synthControl.load("#audio", null, {
+      displayPlay: true, displayProgress: true, displayRestart: true
+    });
+  }
+  await synthControl.setTune(visualObj, true, {});
+}
+
+function getSvg() {
+  return $("paper").querySelector("svg");
+}
+
+function exportSvg() {
+  const svg = getSvg();
+  if (!svg) return alert("先生成五线谱");
+  const clone = svg.cloneNode(true);
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  const str = new XMLSerializer().serializeToString(clone);
+  const blob = new Blob([str], { type: "image/svg+xml;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "score.svg";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function exportPng(scale = 2) {
+  const svg = getSvg();
+  if (!svg) return alert("先生成五线谱");
+  const box = svg.getBoundingClientRect();
+  const w = Math.ceil(box.width), h = Math.ceil(box.height);
+  const clone = svg.cloneNode(true);
+  clone.setAttribute("width", w);
+  clone.setAttribute("height", h);
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+
+  const str = new XMLSerializer().serializeToString(clone);
+  const url = URL.createObjectURL(new Blob([str], { type: "image/svg+xml;charset=utf-8" }));
+  const img = new Image();
+
+  img.onload = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = w * scale;
+    canvas.height = h * scale;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(url);
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = "score.png";
+    a.click();
+  };
+  img.onerror = () => alert("PNG 导出失败，改用「导出 SVG」");
+  img.src = url;
+}
+
+$("btnRender").onclick = render;
+$("btnPlay").onclick = play;
+$("btnSvg").onclick = exportSvg;
+$("btnPng").onclick = exportPng;
+
+$("abc").addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") render();
+});
+
+render();
+</script>
+</body>
+</html>
