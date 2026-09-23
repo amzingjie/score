@@ -134,35 +134,45 @@ function exportSvg() {
 }
 
 function exportPng(scale = 2) {
+function exportPng(scale = 2) {
   const svg = getSvg();
   if (!svg) return alert("先生成五线谱");
+
   const box = svg.getBoundingClientRect();
-  const w = Math.ceil(box.width), h = Math.ceil(box.height);
+  let w = Math.ceil(box.width);
+  let h = Math.ceil(box.height);
+  const vb = (svg.getAttribute("viewBox") || "").split(/[\s,]+/).map(Number);
+  if ((!w || !h) && vb.length === 4) { w = vb[2]; h = vb[3]; }
+  if (!w || !h) { w = 800; h = 400; }
+
   const clone = svg.cloneNode(true);
   clone.setAttribute("width", w);
   clone.setAttribute("height", h);
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-
   const str = new XMLSerializer().serializeToString(clone);
-  const url = URL.createObjectURL(new Blob([str], { type: "image/svg+xml;charset=utf-8" }));
-  const img = new Image();
 
+  const img = new Image();
   img.onload = () => {
     const canvas = document.createElement("canvas");
-    canvas.width = w * scale;
-    canvas.height = h * scale;
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
     const ctx = canvas.getContext("2d");
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    URL.revokeObjectURL(url);
+    let data = "";
+    try { data = canvas.toDataURL("image/png"); } catch (e) {}
+    if (!data || data.length < 100) return alert("PNG 导出失败，请改用「导出 SVG」");
     const a = document.createElement("a");
-    a.href = canvas.toDataURL("image/png");
+    a.href = data;
     a.download = "score.png";
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
   };
-  img.onerror = () => alert("PNG 导出失败，改用「导出 SVG」");
-  img.src = url;
+  img.onerror = () => alert("PNG 导出失败，请改用「导出 SVG」");
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(str);
+}
 }
 
 $("btnRender").onclick = render;
