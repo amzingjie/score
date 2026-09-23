@@ -4,8 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>文字 → 五线谱</title>
- <link rel="apple-touch-icon" href="IMG_8839.jpeg">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/abcjs@6/dist/abcjs-audio.css">
+<link rel="apple-touch-icon" href="IMG_8839.jpeg">
 <style>
   * { box-sizing: border-box; }
   body {
@@ -31,15 +30,12 @@
     background: #fff; border-radius: 10px; padding: 12px;
     overflow-x: auto; box-shadow: 0 1px 6px rgba(0,0,0,.06);
   }
-  #audio { margin-bottom: 12px; }
   .tip { font-size: 12px; color: #667; margin-top: 10px; line-height: 1.6; }
 </style>
 </head>
 <body>
 
 <h1>文字 → 五线谱</h1>
-
-<div id="audio"></div>
 
 <textarea id="abc">X:1
 T:小星星
@@ -88,7 +84,7 @@ function render() {
   }
 }
 
-async function play() {function stopPlayback() {
+function stopPlayback() {
   if (synth) { try { synth.stop(); } catch (e) {} }
   synth = null;
   playing = false;
@@ -117,9 +113,6 @@ async function play() {
     synth = null;
     alert("播放失败：" + e.message);
   }
-}});
-  }
-  await synthControl.setTune(visualObj, true, {});
 }
 
 function getSvg() {
