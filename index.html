@@ -66,9 +66,12 @@ C C G G | A A G2 | F F E E | D D C2 |</textarea>
 <script>
 const $ = id => document.getElementById(id);
 let visualObj = null;
-let synthControl = null;
+let synth = null;
+let audioCtx = null;
+let playing = false;
 
 function render() {
+  stopPlayback();
   const abc = $("abc").value.trim();
   if (!abc) return;
   $("paper").innerHTML = "";
@@ -85,15 +88,36 @@ function render() {
   }
 }
 
+async function play() {function stopPlayback() {
+  if (synth) { try { synth.stop(); } catch (e) {} }
+  synth = null;
+  playing = false;
+  $("btnPlay").textContent = "播放";
+}
+
 async function play() {
   if (!visualObj) render();
   if (!visualObj) return alert("先贴一段 ABC 文字");
-  if (!ABCJS.synth.supportsAudio()) return alert("当前浏览器不支持音频播放");
-  if (!synthControl) {
-    synthControl = new ABCJS.synth.SynthController();
-    synthControl.load("#audio", null, {
-      displayPlay: true, displayProgress: true, displayRestart: true
-    });
+  if (!ABCJS.synth.supportsAudio || !ABCJS.synth.supportsAudio()) {
+    return alert("当前浏览器不支持音频播放");
+  }
+  if (playing) return stopPlayback();
+
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") await audioCtx.resume();
+
+  synth = new ABCJS.synth.CreateSynth();
+  try {
+    await synth.init({ audioContext: audioCtx, visualObj: visualObj });
+    await synth.prime();
+    synth.start();
+    playing = true;
+    $("btnPlay").textContent = "停止";
+  } catch (e) {
+    synth = null;
+    alert("播放失败：" + e.message);
+  }
+}});
   }
   await synthControl.setTune(visualObj, true, {});
 }
